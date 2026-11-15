@@ -1,0 +1,71 @@
+name: DevSecOps AI Auto-Remediation Pipeline
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  security-scan-and-remediate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Pobranie kodu z repozytorium
+        uses: actions/checkout@v4
+
+      - name: 2. Konfiguracja środowiska Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 3. Instalacja Semgrep oraz zależności AI
+        run: |
+          python -m pip install --upgrade pip
+          pip install semgrep -r scripts/requirements.txt
+
+      - name: 4. Skanowanie SAST (Semgrep)
+        run: |
+          semgrep scan \
+            --config "p/python" \
+            --config "p/owasp-top-ten" \
+            --json \
+            --output semgrep-report.json \
+            app/ || true
+
+      - name: 5. Triaż i generowanie poprawek przez AI
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python scripts/ai_remediation.py
+
+      - name: 6. Weryfikacja składni poprawionego kodu (Safety Gate)
+        run: |
+          python -m py_compile app/app.py
+
+      - name: 7. Utworzenie Pull Requesta z poprawką
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ -n $(git status --porcelain app/) ]]; then
+            BRANCH_NAME="secops/ai-fix-${{ github.run_number }}"
+            git config user.name "DevSecOps AI Bot"
+            git config user.email "secops-bot@users.noreply.github.com"
+            git checkout -b "$BRANCH_NAME"
+            git add app/
+            git commit -m "fix(security): automatyczna naprawa podatności SAST przez AI"
+            git push origin "$BRANCH_NAME"
+
+            gh pr create \
+              --title "🔒 [AI SecOps] Automatyczna poprawka podatności bezpieczeństwa" \
+              --body-file pr_summary.md \
+              --base main \
+              --head "$BRANCH_NAME"
+          else
+            echo "Brak zmian w kodzie do wypchnięcia."
+          fi

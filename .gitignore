@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+*.db
+.env
+semgrep-report.json
+pr_summary.md
