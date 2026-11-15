@@ -3,4 +3,5 @@ __pycache__/
 *.db
 .env
 semgrep-report.json
-pr_summary.md
+pr-summary.md
+.venv/

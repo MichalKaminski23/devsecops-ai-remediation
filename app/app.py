@@ -1,4 +1,3 @@
-# test do pipeline
 import sqlite3
 import subprocess
 from flask import Flask, request, jsonify
@@ -7,6 +6,7 @@ app = Flask(__name__)
 
 
 def init_db():
+    """Create the demo database and insert the default administrator."""
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
     cursor.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT, role TEXT)")
@@ -15,15 +15,15 @@ def init_db():
     conn.close()
 
 
-# PODATNOŚĆ 1: SQL Injection (sklejanie zapytania SQL z danymi wejściowymi użytkownika)
 @app.route("/user", methods=["GET"])
 def get_user():
+    """Return a user selected by username from the demo database."""
     username = request.args.get("username", "")
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
 
-    query = f"SELECT id, username, role FROM users WHERE username = '{username}'"
-    cursor.execute(query)
+    query = "SELECT id, username, role FROM users WHERE username = ?"
+    cursor.execute(query, (username,))
     user = cursor.fetchone()
     conn.close()
 
@@ -32,14 +32,14 @@ def get_user():
     return jsonify({"error": "User not found"}), 404
 
 
-# PODATNOŚĆ 2: OS Command Injection (przekazanie parametru z URL bezpośrednio do powłoki)
 @app.route("/ping", methods=["GET"])
 def ping_host():
+    """Run a single ping command for the requested host."""
     host = request.args.get("host", "127.0.0.1")
-    output = subprocess.check_output(f"ping -c 1 {host}", shell=True, text=True)
+    output = subprocess.check_output(["ping", "-c", "1", host], text=True)
     return jsonify({"result": output})
 
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="127.0.0.1", port=5000)
