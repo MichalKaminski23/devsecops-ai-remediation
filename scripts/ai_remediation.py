@@ -3,14 +3,38 @@ import os
 import re
 import sys
 from collections import defaultdict
+from pathlib import Path
+
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 
 REPORT_FILE = "semgrep-report.json"
 PR_SUMMARY_FILE = "pr_summary.md"
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 load_dotenv()
+
+
+def resolve_source_path(file_path: str) -> Path:
+    """Resolve a Semgrep path against the current repository."""
+    report_path = Path(file_path)
+    is_posix_absolute = file_path.startswith("/")
+    is_absolute = report_path.is_absolute() or is_posix_absolute
+    candidates = [report_path if is_absolute else REPO_ROOT / report_path]
+
+    if is_absolute and "app" in report_path.parts:
+        app_index = report_path.parts.index("app")
+        candidates.append(REPO_ROOT.joinpath(*report_path.parts[app_index:]))
+
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved.is_relative_to(REPO_ROOT) and resolved.is_file():
+            return resolved
+
+    raise FileNotFoundError(
+        f"Nie znaleziono pliku wskazanego przez raport Semgrep: {file_path}"
+    )
 
 
 def strip_markdown_fences(text: str) -> str:
@@ -66,7 +90,7 @@ def remediate_file(client: genai.Client, file_path: str, findings: list) -> str:
     )
 
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.5-flash-lite",
         contents=user_prompt,
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
@@ -99,8 +123,9 @@ def main():
     ]
 
     for file_path, findings in findings_by_file.items():
-        print(f"[AI] Analiza i naprawa pliku: {file_path} (liczba alertów: {len(findings)})")
-        remediate_file(client, file_path, findings)
+        source_path = resolve_source_path(file_path)
+        print(f"[AI] Analiza i naprawa pliku: {source_path} (liczba alertów: {len(findings)})")
+        remediate_file(client, str(source_path), findings)
 
         summary_lines.append(f"### Plik: `{file_path}`")
         for f_item in findings:
