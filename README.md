@@ -71,7 +71,7 @@ python scripts\ai_remediation.py
 
 ```powershell
 pytest -q
-pip-audit -r app\requirements.txt -r scripts\requirements.txt
+pip-audit -r app\requirements.txt
 ```
 
 ## GitHub Actions
