@@ -4,8 +4,6 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# test 
-
 
 def init_db():
     """Create the demo database and insert the default administrator."""
