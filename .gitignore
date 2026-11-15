@@ -5,3 +5,4 @@ __pycache__/
 semgrep-report.json
 pr-summary.md
 .venv/
+.pytest_cache/
