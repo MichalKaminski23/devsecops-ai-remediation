@@ -24,8 +24,8 @@ def get_user():
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
 
-    query = f"SELECT id, username, role FROM users WHERE username = '{username}'"
-    cursor.execute(query)
+    query = "SELECT id, username, role FROM users WHERE username = ?"
+    cursor.execute(query, (username,))
     user = cursor.fetchone()
     conn.close()
 
@@ -38,7 +38,7 @@ def get_user():
 def ping_host():
     """Run a single ping command for the requested host."""
     host = request.args.get("host", "127.0.0.1")
-    output = subprocess.check_output(f"ping -c 1 {host}", shell=True, text=True)
+    output = subprocess.check_output(["ping", "-c", "1", host], shell=False, text=True)
     return jsonify({"result": output})
 
 
